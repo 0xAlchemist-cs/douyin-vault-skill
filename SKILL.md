@@ -30,7 +30,7 @@ description: >
    fetch('/aweme/v1/web/aweme/detail/?device_platform=webapp&aid=6383&aweme_id=<ID>&pc_client_type=1&version_code=170400&platform=PC', {credentials:'include'})
    ```
    登录态下此接口可裸调（无需 a_bogus 签名），返回 desc/duration/play_addr(3 镜像)/create_time/digg_count
-4. ⚠️ **坑 2：DOM 差集里的假阳性**。滚到底后抖音会混入"推荐"视频（其他博主）。按卡片文案/标签风格人工判别，别盲目全抓
+4. ⚠️ **坑 2：DOM 差集里的假阳性**。滚到底后抖音会混入"推荐"视频（其他博主）。**id 时间段判断不可靠**（推荐流能混进最新 id 段），必须用 detail 接口验 `author.uid == 博主uid` 才入库
 5. 产物 `videos.json`：`[{id, desc, dur_ms, urls:[3个镜像], create, digg}]`，按 create 倒序
 
 **翻页 UI 技巧**：用户页是内层容器滚动（不是 window）。找 `overflow-y: auto/scroll && scrollHeight > clientHeight` 的最大元素滚它。MCP 单次调用有 30s 上限时，把滚动循环拆成多次调用。
