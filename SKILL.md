@@ -85,10 +85,18 @@ RTX 4060 + large-v3 实测 **14x 实时**（small）/~6x（large-v3），453 分
 2. ⚠️ **坑 10：滚到底会混入左侧会话栏的行（它也是虚拟列表、也有 data-index）**——收集范围必须限定在消息面板容器内；且列表回顶后 **data-index 会整体重置**，跨阶段合并按文本去重，别信索引
 3. 采集法：边滚边收集 `[data-index]` 的 innerText 到 Set；卡住（橡皮筋回弹、scrollTop 变负）就**先滚回底部再上翻**解 deadlock
 
-**服务器级验证（到底有没有更早）**：DevTools 抓 `imapi.douyin.com/v1/message/get_by_conversation` 的请求体（二进制 protobuf）。内层结构：
-`\n<convid> \x10\x02 \x18<convid varint> \x20\x01 \x28<游标µs时间戳> \x30<limit>`
-把 field5 游标改成目标时间（µs），从页面上下文 `fetch(imapi..., {method:'POST', credentials:'include', headers:{'Content-Type':'application/x-protobuf'}, body: Uint8Array})` 重放。**响应 2 字节 = 该时间前无任何消息**（群创建时间的决定性证据）。
-⚠️ 坑 11：DevTools "Copy" 会把二进制损坏成 UTF-8 替换符——用 CDP `Network.getRequestPostData` 拿干净 base64。重复重放会触发 secsdk 拦截，**拿到答案就停，别硬刚**。
+**服务器级直连（UI 顶不住时的终极方案，实战 212 页/10551 条全量）**：
+
+⚠️ 坑 11：DevTools "Copy" 会把二进制损坏成 UTF-8 替换符——用 CDP `Network.getRequestPostData` 拿干净 base64。重放捕获的旧请求只会得到 2 字节空响应（内含会话序列号，不能复用）。
+
+正解是**从零构造 protobuf 请求**（参考开源 douyin-chat-export 的配方）：
+- 外层：`1:301, 2:10027, 3:'0.1.6', 4:'', 5:3, 6:0, 7:'fef1a80:p/lzg/store', 8:<query301>, 9:'0', 11:'douyin_pc', 14:'360000', 18:1, 21:'douyin_pc'`
+- ⚠️ **坑 12（关键钥匙）：field 8 里必须先包一层 field 301 再装查询体**，漏了这层服务器报 "MessagesInConversationBody is empty"
+- field301 内（查询体）：`1:conv_id字符串, 2:1, 3:conv_id数值(群聊=short_id，BigInt!), 4:1, 5:游标, 6:50`
+- 游标从 `9999999999999999` 开始，**服务器驱动翻页**：响应 `f6→f301` 里 `f2=nextTs, f3=hasMore, f1=消息数组`，跟着 nextTs 走到 hasMore=0
+- 消息时间戳：server_id >> 32 = Unix 秒（snowflake）
+- 用 **XMLHttpRequest**（withCredentials）在页面上下文发，别用 fetch（secsdk 挂钩）
+- 翻页限速（100-500ms/页），全量即停——只读接口+正常节奏=零风险
 
 ## 防封红线（全程）
 
