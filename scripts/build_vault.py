@@ -15,6 +15,29 @@ import time
 from pathlib import Path
 
 ID_RE = re.compile(r"^\d{8,25}$")
+
+
+def load_answers(base):
+    """answers/*_{id}.md -> {vid: {问题原文: 答案}}。格式: Q: xx / A: xx 成对。"""
+    ans_dir = base / "answers"
+    mapping = {}
+    if not ans_dir.exists():
+        return mapping
+    for f in sorted(ans_dir.glob("*.md")):
+        text = f.read_text(encoding="utf-8")
+        m = re.search(r'id:\s*"(\d{8,25})"', text)
+        if not m:
+            continue
+        pairs, cur_q = {}, None
+        for line in text.splitlines():
+            t = line.strip()
+            if t.startswith("Q: "):
+                cur_q = t[3:].strip()
+            elif t.startswith("A: ") and cur_q:
+                pairs[cur_q] = t[3:].strip()
+                cur_q = None
+        mapping[m.group(1)] = pairs
+    return mapping
 STOP_CHARS = set("的了和与及或在是对也就都很还更被把这那有为不没同上下中入出大多少要会能可等到们你我他她它")
 
 
@@ -191,15 +214,26 @@ tags:
             encoding="utf-8",
         )
 
+    # 问题总库（有答案 -> 折叠 callout 点击展开，无答案 -> 勾选框）
+    answers = load_answers(base)
+    seq2vid = {f"{i:03d}": str(v["id"]) for i, v in enumerate(videos, 1)}
     grouped = {}
     for seq, note_name, title, date, dur, digg, ana in all_notes:
         for q in ana["questions"]:
             grouped.setdefault(seq, []).append(q)
-    qbuf = ["---\ntags:\n  - 问题库\n---\n\n# 总问题库\n"]
+    qbuf = ["---\ntags:\n  - 问题库\n---\n\n# 总问题库\n", "", "> [!tip] 用法", "> 点击问题行展开答案（答案取自对应视频逐字稿）。未配答案的为勾选框。", ""]
+    answered = 0
     for seq in sorted(grouped):
         title = next(n[2] for n in all_notes if n[0] == seq)
         qbuf.append(f"\n## {seq} · {title}\n")
-        qbuf.extend(f"- [ ] {q}" for q in grouped[seq])
+        ans_map = answers.get(seq2vid.get(seq, ""), {})
+        for q in grouped[seq]:
+            a = ans_map.get(q)
+            if a:
+                answered += 1
+                qbuf.append(f"> [!question]- {q}\n> {a}\n")
+            else:
+                qbuf.append(f"- [ ] {q}")
     (quest_dir / "总问题库.md").write_text("\n".join(qbuf) + "\n", encoding="utf-8")
 
     total_min = sum(n[4] for n in all_notes) // 60
