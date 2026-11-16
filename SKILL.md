@@ -9,7 +9,7 @@ description: >
 
 # 抖音博主 → Obsidian 知识库 全流程
 
-一次实战验证过的完整管线：104 个视频全量抓取（0 失败）→ GPU 转录 → 516 个问题提炼 → 网状图谱知识库 + 群聊全量历史挖掘。下面每一步都标注了**踩过的坑**，照做可省数小时。
+一次实战验证过的完整管线：111 个视频全量抓取（0 失败）→ GPU 转录 → 553 个问题提炼 → 网状图谱知识库 + 群聊 10,551 条全量历史挖掘。15 个坑全部标注，照做可省数小时。
 
 ## 总体流程
 
@@ -97,6 +97,12 @@ RTX 4060 + large-v3 实测 **14x 实时**（small）/~6x（large-v3），453 分
 - 消息时间戳：server_id >> 32 = Unix 秒（snowflake）
 - 用 **XMLHttpRequest**（withCredentials）在页面上下文发，别用 fetch（secsdk 挂钩）
 - 翻页限速（100-500ms/页），全量即停——只读接口+正常节奏=零风险
+
+## 增量更新（坑 13-15，实战踩过）
+
+- ⚠️ **坑 13：绝不能 `clearCookies()`**——清掉登录态后页面只显示 ~28 条（混推荐流），post API 返回旧缓存，作品数显示不变。修复：必须重新扫码登录。**教训：永不主动清 Cookie**
+- ⚠️ **坑 14：batch_download 脚本在 mp4 被清空后会重下全部**——CDN URL 有时效（几小时到几天），旧的 403。修复：只下载新视频（从 videos.json 取最新条的 URL 单独 curl），不要跑批量脚本
+- ⚠️ **坑 15：headless 浏览器（`headless: true`）无法加载抖音聊天页**——需要 WebSocket 长连接，SPA 不渲染。修复：必须 `headless: false`（有头模式）+ persistent context（`launchPersistentContext`）保持登录态
 
 ## 防封红线（全程）
 
