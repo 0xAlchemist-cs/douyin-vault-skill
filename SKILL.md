@@ -75,7 +75,11 @@ RTX 4060 + large-v3 实测 **14x 实时**（small）/~6x（large-v3），453 分
 - **相似度互联**：分析文本字符二元组 TF 余弦 + 同主题加分 → 每篇自动链 3 篇"相关笔记"，图谱从星型变网状
 - **graph.json 预置**：按路径配色（主题橙/笔记蓝/问题绿）+ `-path:"逐字稿"` 隐藏杂线
 - ⚠️ **坑 7：`obsidian://open?path=` 只认已注册 vault**。新库直接弹 "Vault not found"。解法：写入 `%APPDATA%/obsidian/obsidian.json` 的 vaults 注册表（先备份），**重启 Obsidian**（运行中内存缓存不重读配置）
-- ⚠️ **坑 8：build 脚本若整删 vault 重建会连 .obsidian 一起删**——先关 Obsidian 再 build，或 build 后重写配置
+- ⚠️ **坑 8：重建会删除现有输出。** `build_vault.py` 会先递归删除 `-o` / `--out` 指向的整个现有目录，再重新生成，不会保留手写笔记、勾选进度或 `.obsidian` 配置。请使用独立的生成目录，不要指向日常 Obsidian 库或输入数据目录。重跑前，把要保留的内容完整备份到输出目录之外。
+
+```bash
+python scripts/build_vault.py D:/data -o D:/douyin-vault-generated --themes themes.json
+```
 
 ## 第六步（可选）：群聊/私信历史深挖
 
