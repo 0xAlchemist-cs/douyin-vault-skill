@@ -1,0 +1,5 @@
+.mimosa/
+__pycache__/
+*.pyc
+build_answers.py
+gen_answers_1_21.py

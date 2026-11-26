@@ -9,7 +9,7 @@ description: >
 
 # 抖音博主 → Obsidian 知识库 全流程
 
-一次实战验证过的完整管线：111 个视频全量抓取（0 失败）→ GPU 转录 → 553 个问题提炼 → 网状图谱知识库 + 群聊 10,551 条全量历史挖掘。16 个坑全部标注，照做可省数小时。
+一次实战验证过的完整管线：双博主 164 个视频全量抓取（0 失败）→ GPU 转录 → 119+45 篇笔记 + 12,195 条群聊全量历史 → 单库网状图谱。23 个坑全部标注，照做可省数十小时。
 
 ## 总体流程
 
@@ -104,6 +104,22 @@ RTX 4060 + large-v3 实测 **14x 实时**（small）/~6x（large-v3），453 分
 - ⚠️ **坑 14：batch_download 脚本在 mp4 被清空后会重下全部**——CDN URL 有时效（几小时到几天），旧的 403。修复：只下载新视频（从 videos.json 取最新条的 URL 单独 curl），不要跑批量脚本
 - ⚠️ **坑 15：headless 浏览器（`headless: true`）无法加载抖音聊天页**——需要 WebSocket 长连接，SPA 不渲染。修复：必须 `headless: false`（有头模式）+ persistent context（`launchPersistentContext`）保持登录态
 - ⚠️ **坑 16：增量更新完成后必须删除 mp4 和 wav 文件**——转录产出 txt/srt 后视频文件就是废料（100+ 条 ≈ 8GB）。**规矩：每次增量跑完 `rm -f videos/*.mp4 audio/*.wav`**，防止坑 14 重演且释放磁盘
+
+## 增量更新 II（坑 17-23，双博主/风控对抗期实战）
+
+- ⚠️ **坑 17：post/detail API 会被 Argus 风控整段拦截**（响应 `Blocked by ArgusSecurityPlugin Uifid Not`）。触发后**别硬刚**，DOM 旁路三步照样拿全数据：
+  1. 主页网格滚动收割 `a[href*='/video/']` 做差集找新片（注意甄别博主刚解除隐藏的转型前旧 vlog）
+  2. 视频页取直链：`<video>` 的 src 是 `blob:` 不能直接下；去 `performance.getEntriesByType('resource')` 里捞 `douyinvod.com` 的 **media-video / media-audio 两条 MSE 流**（完整 URL 很长，截断会 403）
+  3. curl 分别下载双流 → `ffmpeg -i video.mp4 -i audio.mp4 -c copy out.mp4` 合流 → 照常抽音频转录
+- ⚠️ **坑 18：聊天会话列表必须真实鼠标点击**（拿 `getBoundingClientRect()` 坐标调 `page.mouse.click(x,y)`）。JS `el.click()` 对 React 无效——日志显示 clicked 但右侧面板根本不渲染，白等
+- ⚠️ **坑 19：会话列表渲染慢**，等待 7s 会 "group not found" 假阴性。改 12s + 找不到再重试 3 次（每次 +5s）
+- ⚠️ **坑 20：聊天页没有日期分隔符**，增量边界判定用**文本指纹重叠法**：把基线存档每行的正文（正则剥掉 `[时间] 昵称:` 前缀）取前 40 字建 Set，收割时命中 ≥5 且连续 2-3 轮即认为到达重叠区；再按命中块的最小索引切增量。**指纹必须用正文，用昵称会全部误判**
+- ⚠️ **坑 21：ego-browser 收尾**——`task.release()` 只移交不关窗，浏览器会一直挂在桌面。**必须 `await task.finish({ keep: [] })`**，且整个业务体要包 `try { ... } finally { task.finish({keep:[]}) }`，否则中途报错会跳过关闭、窗口残留
+- ⚠️ **坑 22：评论 DOM 的解析结构**是 `昵称 / "..." / 正文 / 时间·地区 / 纯数字赞行`——正文取 "..." 后的第一行，点赞数取含"·"行之后的第一个纯数字行。另外 **regex 里带中文/Unicode 字面量在 ego-browser eval 里会炸**（Invalid regular expression flags），一律用 `String.includes()` 替代
+- ⚠️ **坑 23：分析数据与视频对齐严禁手编 ID**——人工摘要时凭记忆写 aweme_id 会整批错位。规矩：分析条目按**阅读顺序位置**记录，落盘脚本按位置映射到工具返回的真实 ID，落盘后抽查 title 与 desc 对齐
+- 💡 **双博主甄别经验**：819 条作品里只有 39 条相关（先栏目标签/关键词粗筛 44 候选 → 全部转写精读后二次剔除 rap/开箱/纯情感 5 条）。**标题相关性 ≠ 内容相关性，两层过滤缺一不可**
+- 💡 **多库合并**：Obsidian wikilink 不跨库。两个博主库要互链就**合并成单库子文件夹**（如 `vault/氧气在巴厘岛/`），一次解决注册、互链、手机同步三件事；合并时冲突文件名（阅读顺序/评论区精华）加后缀区分
+- 💡 **逐字稿文件名统一带 ` 逐字稿` 后缀**（笔记模板链接是 `[[标题 逐字稿|查看全文]]`），新批次入库时别漏，漏了就是断链
 
 ## 防封红线（全程）
 
