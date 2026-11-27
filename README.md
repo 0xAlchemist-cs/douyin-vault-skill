@@ -20,7 +20,6 @@
 - **主题页**（7 大主题自动聚合）
 - **网状图谱**（内容相似度互联 + 路径配色，`Ctrl+G` 查看）
 - **群聊课堂**（服务器直连全量抓取，按周分段提炼）
-- **手动笔记保护**（简历/路线图/作战图等 rebuild 不丢失）
 
 ## 实战战绩
 
@@ -34,6 +33,8 @@
 | 踩坑实录 | **23 个坑**全部标注解法，照做可省数小时 |
 
 ## 快速开始
+
+> **重建会删除现有输出。** `build_vault.py` 会先递归删除 `-o` / `--out` 指向的整个现有目录，再重新生成，不会保留手写笔记、勾选进度或 `.obsidian` 配置。请使用独立的生成目录，不要指向日常 Obsidian 库或输入数据目录。重跑前，把要保留的内容完整备份到输出目录之外。
 
 ```bash
 # 0. 安装
@@ -50,8 +51,8 @@ python scripts/transcribe.py D:/data/videos -o D:/data
 
 # 4. AI 逐条分析 → analysis/{seq}_{id}.md (模板见 SKILL.md)
 
-# 5. 组装 Obsidian vault (含图谱配色 + 手动笔记保护)
-python scripts/build_vault.py D:/data -o D:/data/vault --themes themes.json
+# 5. 组装 Obsidian vault（使用独立的生成目录）
+python scripts/build_vault.py D:/data -o D:/douyin-vault-generated --themes themes.json
 
 # 6. 增量更新完成后删除视频文件 (释放磁盘 + 防止重下)
 rm -f D:/data/videos/*.mp4 D:/data/audio/*.wav
@@ -70,7 +71,7 @@ rm -f D:/data/videos/*.mp4 D:/data/audio/*.wav
 | 5 | CUDA 推理报 cublas 缺失 | ctypes.CDLL 预加载驻留 |
 | 6 | PyAV 参数不兼容 | numpy 数组直喂 |
 | 7 | obsidian:// 不认新库 | 写 vault 注册表 + 重启 |
-| 8 | rebuild 连手动笔记一起删 | 只删自动生成的 4 个子目录 |
+| 8 | 重建会删除整个输出目录 | 使用独立生成目录，先把要保留的内容备份到输出目录之外 |
 | 9 | scrollTop=0 不翻页 | 真实滚轮事件 |
 | 10 | 侧栏混入 + 索引重置 | 容器内收集 + 文本去重 |
 | 11 | DevTools 复制损坏二进制 | CDP getRequestPostData |
@@ -94,7 +95,7 @@ rm -f D:/data/videos/*.mp4 D:/data/audio/*.wav
 |---|---|
 | `download.py` | 限速防封下载（curl 失速检测 + 续传 + 镜像轮换） |
 | `transcribe.py` | ffmpeg 抽音频 + GPU large-v3 转录（CUDA DLL 预加载，断点续跑） |
-| `build_vault.py` | videos.json + analysis + transcripts → Obsidian vault（相似度互联 + graph 预置 + 手动笔记保护） |
+| `build_vault.py` | videos.json + analysis + transcripts → Obsidian vault（相似度互联 + graph 预置；重建会删除整个输出目录） |
 | `im_pb.py` | imapi protobuf 解码（消息抽取 / 游标定位） |
 
 ## 安装
